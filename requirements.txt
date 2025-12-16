@@ -1,0 +1,11 @@
+# Core dependencies (required)
+pillow>=9.0.0
+python-dotenv>=1.0.0
+
+# AI Providers - install at least one
+openai>=1.0.0           # For GPT-4o (default, images only)
+anthropic>=0.18.0       # For Claude (images + PDFs)
+google-generativeai>=0.3.0  # For Gemini (images + PDFs)
+
+# Optional - for improved word detection
+nltk>=3.8.0             # English dictionary for better filename detection
