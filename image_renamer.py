@@ -1315,11 +1315,19 @@ def run_duplicate_finder(args):
     """
     try:
         from duplicate_finder import DuplicateFinder, export_duplicates_csv, print_duplicate_summary
-        from duplicate_gui import DuplicateFinderGUI
     except ImportError as e:
         print(f"❌ Error: Missing dependencies for duplicate detection: {e}")
         print("\n   Install with: pip install imagehash send2trash")
         return
+    
+    # Only import GUI if needed
+    if not args.no_gui:
+        try:
+            from duplicate_gui import DuplicateFinderGUI
+        except ImportError as e:
+            print(f"⚠️  Warning: GUI not available: {e}")
+            print("   Falling back to console output mode")
+            args.no_gui = True
     
     # Validate arguments
     if args.dir1 and args.dir2:
@@ -1412,6 +1420,7 @@ def run_duplicate_finder(args):
     else:
         print("\n🖼️  Launching GUI for review...")
         try:
+            from duplicate_gui import DuplicateFinderGUI
             gui = DuplicateFinderGUI(duplicates)
             gui.run()
         except Exception as e:
