@@ -9,3 +9,7 @@ google-generativeai>=0.3.0  # For Gemini (images + PDFs)
 
 # Optional - for improved word detection
 nltk>=3.8.0             # English dictionary for better filename detection
+
+# Duplicate detection dependencies
+imagehash>=4.3.1        # Perceptual hashing for image similarity
+send2trash>=1.8.2       # Safe file deletion (trash/recycle bin)
