@@ -140,7 +140,13 @@ class DuplicateFinder:
         """
         try:
             img = Image.open(image_path)
-            img.thumbnail(size, Image.Resampling.LANCZOS)
+            # Use LANCZOS resampling (compatible with older Pillow versions)
+            try:
+                # Pillow >= 10.0.0
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+            except AttributeError:
+                # Pillow < 10.0.0
+                img.thumbnail(size, Image.LANCZOS)
             return img
         except Exception as e:
             print(f"Error generating thumbnail for {image_path}: {e}")

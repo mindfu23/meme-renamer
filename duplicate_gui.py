@@ -298,7 +298,13 @@ class DuplicateFinderGUI:
                 # Generate thumbnail if not already available
                 try:
                     img = Image.open(file_info.path)
-                    img.thumbnail((200, 200), Image.Resampling.LANCZOS)
+                    # Use LANCZOS resampling (compatible with older Pillow versions)
+                    try:
+                        # Pillow >= 10.0.0
+                        img.thumbnail((200, 200), Image.Resampling.LANCZOS)
+                    except AttributeError:
+                        # Pillow < 10.0.0
+                        img.thumbnail((200, 200), Image.LANCZOS)
                     file_info.thumbnail = img
                 except Exception as e:
                     print(f"Error loading thumbnail: {e}")

@@ -1593,11 +1593,12 @@ Environment Variables:
     if args.find_duplicates:
         return run_duplicate_finder(args)
     
-    # Expand user home directory if needed
-    directory = os.path.expanduser(args.directory) if args.directory else None
+    # For non-duplicate mode, directory is required
+    if not args.directory:
+        parser.error("the following arguments are required: directory (unless using --find-duplicates)")
     
-    if not directory:
-        parser.error("directory is required when not using --find-duplicates with --dir1/--dir2")
+    # Expand user home directory if needed
+    directory = os.path.expanduser(args.directory)
     
     # If fix-extensions mode, just add extensions and exit (no API needed)
     if args.fix_extensions:
