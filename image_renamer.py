@@ -1306,11 +1306,125 @@ def process_directory(directory: str, dry_run: bool = True, api_key: str = None,
             print(f"  - {error}")
 
 
+def run_duplicate_finder(args):
+    """
+    Run the duplicate finder with the provided arguments.
+    
+    Args:
+        args: Parsed command-line arguments
+    """
+    try:
+        from duplicate_finder import DuplicateFinder, export_duplicates_csv, print_duplicate_summary
+        from duplicate_gui import DuplicateFinderGUI
+    except ImportError as e:
+        print(f"❌ Error: Missing dependencies for duplicate detection: {e}")
+        print("\n   Install with: pip install imagehash send2trash")
+        return
+    
+    # Validate arguments
+    if args.dir1 and args.dir2:
+        # Two-directory mode
+        dir1 = os.path.expanduser(args.dir1)
+        dir2 = os.path.expanduser(args.dir2)
+        
+        if not os.path.exists(dir1):
+            print(f"❌ Error: Directory '{dir1}' does not exist")
+            return
+        if not os.path.exists(dir2):
+            print(f"❌ Error: Directory '{dir2}' does not exist")
+            return
+        
+        print(f"\n🔍 Finding duplicates between two directories:")
+        print(f"   Directory 1: {dir1}")
+        print(f"   Directory 2: {dir2}")
+    elif args.dir1:
+        # Single directory mode (using --dir1)
+        dir1 = os.path.expanduser(args.dir1)
+        dir2 = None
+        
+        if not os.path.exists(dir1):
+            print(f"❌ Error: Directory '{dir1}' does not exist")
+            return
+        
+        print(f"\n🔍 Finding duplicates in directory: {dir1}")
+    elif args.directory:
+        # Single directory mode (using positional argument)
+        dir1 = os.path.expanduser(args.directory)
+        dir2 = None
+        
+        if not os.path.exists(dir1):
+            print(f"❌ Error: Directory '{dir1}' does not exist")
+            return
+        
+        print(f"\n🔍 Finding duplicates in directory: {dir1}")
+    else:
+        print("❌ Error: Please provide a directory to scan")
+        print("   Use: --dir1 /path/to/dir (single directory)")
+        print("   Or:  --dir1 /path/to/dir1 --dir2 /path/to/dir2 (two directories)")
+        print("   Or:  /path/to/dir --find-duplicates (single directory)")
+        return
+    
+    print(f"   Similarity threshold: {args.similarity_threshold}%")
+    print(f"   Detection method: {args.method}")
+    print("=" * 80)
+    
+    # Create duplicate finder
+    finder = DuplicateFinder(similarity_threshold=args.similarity_threshold)
+    
+    # Map method argument to internal method
+    method_map = {
+        'exact': 'exact',
+        'visual': 'visual',
+        'similar': 'visual',  # Treat 'similar' as 'visual'
+        'all': 'all'
+    }
+    method = method_map.get(args.method, 'all')
+    
+    # Find duplicates
+    try:
+        if dir2:
+            duplicates = finder.find_duplicates_between_dirs(dir1, dir2, method=method)
+        else:
+            duplicates = finder.find_duplicates_in_dir(dir1, method=method)
+    except Exception as e:
+        print(f"\n❌ Error during duplicate detection: {e}")
+        import traceback
+        traceback.print_exc()
+        return
+    
+    # Handle results
+    if not duplicates:
+        print("\n✅ No duplicates found!")
+        return
+    
+    print(f"\n✅ Found {len(duplicates)} duplicate pair(s)")
+    
+    # Export to CSV if requested
+    if args.output:
+        try:
+            export_duplicates_csv(duplicates, args.output)
+        except Exception as e:
+            print(f"❌ Error exporting to CSV: {e}")
+    
+    # Show GUI or print summary
+    if args.no_gui:
+        print_duplicate_summary(duplicates)
+    else:
+        print("\n🖼️  Launching GUI for review...")
+        try:
+            gui = DuplicateFinderGUI(duplicates)
+            gui.run()
+        except Exception as e:
+            print(f"❌ Error launching GUI: {e}")
+            print("\nFalling back to console output:")
+            print_duplicate_summary(duplicates)
+
+
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description='Rename images based on their content using AI vision analysis.',
+        description='Rename images based on their content using AI vision analysis, or find duplicate images.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -1341,6 +1455,18 @@ Examples:
   # Use a specific API key
   python image_renamer.py /path/to/images --api-key sk-xxx... --execute
 
+  # Find duplicates in a single directory (with GUI)
+  python image_renamer.py /path/to/images --find-duplicates
+
+  # Find duplicates between two directories
+  python image_renamer.py --find-duplicates --dir1 /path/to/dir1 --dir2 /path/to/dir2
+
+  # Find duplicates and export to CSV (no GUI)
+  python image_renamer.py /path/to/images --find-duplicates --no-gui --output duplicates.csv
+
+  # Adjust similarity threshold (default: 85)
+  python image_renamer.py /path/to/images --find-duplicates --similarity-threshold 95
+
 AI Providers:
   openai  - GPT-4o (default). Fast, good quality. NO PDF support.
   claude  - Claude Sonnet. Excellent quality. PDF support.
@@ -1355,8 +1481,53 @@ Environment Variables:
     
     parser.add_argument(
         'directory',
+        nargs='?',  # Make optional to support --dir1/--dir2 mode
         help='Directory containing images to process'
     )
+    
+    # Duplicate finder arguments
+    parser.add_argument(
+        '--find-duplicates',
+        action='store_true',
+        help='Enable duplicate detection mode'
+    )
+    
+    parser.add_argument(
+        '--dir1',
+        help='First directory to scan (for duplicate detection)'
+    )
+    
+    parser.add_argument(
+        '--dir2',
+        help='Second directory to compare against (optional, for two-directory mode)'
+    )
+    
+    parser.add_argument(
+        '--similarity-threshold',
+        type=int,
+        default=85,
+        help='Threshold for considering images similar (0-100, default: 85)'
+    )
+    
+    parser.add_argument(
+        '--method',
+        choices=['exact', 'similar', 'visual', 'all'],
+        default='all',
+        help='Detection method: exact (file hash), visual (perceptual hash), all (default: all)'
+    )
+    
+    parser.add_argument(
+        '--no-gui',
+        action='store_true',
+        help='Skip GUI and output results to console/CSV'
+    )
+    
+    parser.add_argument(
+        '--output',
+        help='Save duplicate report to CSV file'
+    )
+    
+    # Existing arguments
     
     parser.add_argument(
         '--execute',
@@ -1409,8 +1580,15 @@ Environment Variables:
     
     args = parser.parse_args()
     
+    # Handle duplicate finding mode
+    if args.find_duplicates:
+        return run_duplicate_finder(args)
+    
     # Expand user home directory if needed
-    directory = os.path.expanduser(args.directory)
+    directory = os.path.expanduser(args.directory) if args.directory else None
+    
+    if not directory:
+        parser.error("directory is required when not using --find-duplicates with --dir1/--dir2")
     
     # If fix-extensions mode, just add extensions and exit (no API needed)
     if args.fix_extensions:
