@@ -32,3 +32,7 @@ Thumbs.db
 
 # NLTK data (if downloaded locally)
 nltk_data/
+
+# Claude Code
+.claude/
+CLAUDE.md
